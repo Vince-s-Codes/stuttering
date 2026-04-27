@@ -1,4 +1,4 @@
-# Stuttering - VSCode Extension
+# Stuttering
 
 A lightweight VSCode extension that replaces repeated characters with customizable sequences while typing. For example, `((` can be replaced with `{`, and `(((` with `[`.
 
@@ -12,28 +12,33 @@ A lightweight VSCode extension that replaces repeated characters with customizab
 
 | Input | Output (Default) |
 |-------|------------------|
-| `((` | `{`              |
-| `(((`| `[`              |
-| `))` | `}`              |
-| `)))`| `]`              |
+| `((`  | `{`              |
+| `(((` | `[`              |
+| `))`  | `}`              |
+| `)))` | `]`              |
 
 > **Note**: All replacements are configurable via settings.
-
-## Requirements
-
-- Visual Studio Code (v1.75.0 or higher)
 
 ## Extension Settings
 
 This extension contributes the following settings:
 
-- `stuttering.escape`: Enable/disable the escape character (default: `true`)
-- `stuttering.escapeCharacter`: The escape character to prevent stuttering (default: `'`)
-- `stuttering.mappings`: Define mappings for character replacements (language-specific or default)
-- `stuttering.smartClose`: Automatically use the appropriate closing character (default: `true`)
+### `stuttering.escape`
+Enable/disable the escape character:
+```json
+"stuttering.escape": true
+```
+- Default: `true`
 
-### Example Configuration in `settings.json`
+### `stuttering.escapeCharacter`
+The escape character to prevent stuttering:
+```json
+"stuttering.escapeCharacter": "'"
+```
+- Default: `'`
 
+### `stuttering.mappings`
+Define mappings for character replacements (language-specific or default):
 ```json
 "stuttering.mappings": {
   "(": [
@@ -54,11 +59,9 @@ This extension contributes the following settings:
 }
 ```
 
-## Release Notes
-
-### 1.0.0
-
-- Initial release
-  - Added support for customizable character replacements
-  - Real-time replacement while typing
-  - Configurable via VSCode settings
+### `stuttering.smartClose`
+Automatically use the appropriate closing character:
+```json
+"stuttering.smartClose": true
+```
+- Default: `true`

@@ -196,7 +196,11 @@ export function handleTextChange(
               }
             }
             if (!matched) {
-              replacement += currentChar;
+              if (sequence.replace) {
+                replacement += sequence.replace;
+              } else {
+                replacement += currentChar;
+              }
             }
           } else {
             replacement += currentChar;
