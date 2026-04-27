@@ -1,0 +1,106 @@
+{
+  "name": "stuttering",
+  "publisher": "VincesCodes",
+  "displayName": "Stuttering",
+  "description": "This extension changes double or triple characters into other character to avoid key combination",
+  "version": "0.0.1",
+  "icon": "./media/icon.png",
+  "homepage": "https://github.com/Vince-s-Codes/stuttering#readme",
+  "bugs": {
+    "url": "https://github.com/Vince-s-Codes/stuttering/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Vince-s-Codes/stuttering.git"
+  },
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "stuttering.toggle",
+        "title": "Toggle Stuttering Extension"
+      }
+    ],
+    "configuration": {
+      "title": "Stuttering",
+      "properties": {
+        "stuttering.escape": {
+          "type": "boolean",
+          "default": true,
+          "description": "When on, an escape character can be used to prevent the stuttering to operate"
+        },
+        "stuttering.escapeCharacter": {
+          "type": "string",
+          "default": "'",
+          "description": "The escape character which will prevent the stuttering to operate (the escape character will be removed)"
+        },
+        "stuttering.mappings": {
+          "type": "object",
+          "default": {
+            "(": [
+              {
+                "languages": [
+                  "verilog",
+                  "systemverilog"
+                ],
+                "mappings": [
+                  "[", "{"
+                ]
+              },
+              {
+                "languages": [
+                  "tcl"
+                ],
+                "mappings": [
+                  "[", "("
+                ],
+                "replace": "{"
+              },
+              {
+                "languages": [
+                  "default"
+                ],
+                "mappings": [
+                  "{", "["
+                ]
+              }
+            ]
+          },
+          "description": "Define suttering mapping, everytime you hit multiple times a key, a replacement is computed based on this mapping."
+        },
+        "stuttering.smartClose": {
+          "type": "boolean",
+          "default": true,
+          "description": "Use the appropriate ')', ']' or '}' when hitting one of this key"
+        }
+      }
+    }
+  },
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src",
+    "test": "vscode-test"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.85.0",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "22.x",
+    "typescript-eslint": "^8.56.1",
+    "eslint": "^9.39.3",
+    "typescript": "^5.9.3",
+    "@vscode/test-cli": "^0.0.12",
+    "@vscode/test-electron": "^2.5.2"
+  }
+}
