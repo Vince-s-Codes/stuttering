@@ -10,14 +10,66 @@ A lightweight VSCode extension that replaces repeated characters with customizab
 
 ### Example Replacements
 
-| Input | Output (Default) |
-|-------|------------------|
-| `((`  | `{`              |
-| `(((` | `[`              |
-| `))`  | `}`              |
-| `)))` | `]`              |
+| Input | Output |
+|-------|--------|
+| `&&`  | ` && ` |
+| `>>`  | ` >> ` |
+| `((`  | `{`    |
+| `(((` | `[`    |
+| `))`  | `}`    |
+| `)))` | `]`    |
 
 > **Note**: All replacements are configurable via settings.
+
+## Commands
+
+The extension provides the following commands:
+
+- **Toggle Stuttering**: `stuttering.toggle` - Toggles the extension on/off
+- **Enable Stuttering**: `stuttering.enable` - Explicitly enables the extension
+- **Disable Stuttering**: `stuttering.disable` - Explicitly disables the extension
+- **Paste Without Stuttering**: `stuttering.pasteWithoutStuttering` - Pastes content without applying stuttering transformations
+- **Temporarily Disable Stuttering**: `stuttering.disableTemporarily` - Disables stuttering until the next non-empty change
+
+You can run these commands from the Command Palette (Ctrl+Shift+P or Cmd+Shift+P) or bind them to keyboard shortcuts in your keybindings.json file.
+
+**Recommended Keybindings:**
+
+### 1. Paste Without Stuttering
+To paste without stuttering using the standard paste shortcut (Ctrl+V/Cmd+V), add this to your keybindings.json:
+
+```json
+{
+  "key": "ctrl+v",
+  "command": "stuttering.pasteWithoutStuttering",
+  "when": "editorTextFocus && stuttering.isActive"
+}
+```
+
+Or for macOS:
+
+```json
+{
+  "key": "cmd+v",
+  "command": "stuttering.pasteWithoutStuttering",
+  "when": "editorTextFocus && stuttering.isActive"
+}
+```
+
+### 2. Temporarily Disable Stuttering
+To temporarily disable stuttering (useful for middle-click paste on Linux), add this to your keybindings.json:
+
+```json
+{
+  "key": "tab s",
+  "command": "stuttering.disableTemporarily",
+  "when": "editorTextFocus && stuttering.isActive"
+}
+```
+
+This keybinding allows you to quickly disable stuttering before making a change (like pasting with middle-click), and it will automatically re-enable after your change.
+
+> **Note**: These keybindings only override the default behavior when the stuttering extension is active.
 
 ## Extension Settings
 
@@ -39,6 +91,14 @@ The escape character to prevent stuttering:
 
 ### `stuttering.mappings`
 Define mappings for character replacements (language-specific or default):
+
+Each mapping entry can specify:
+- `languages`: Array of language IDs where this mapping applies
+- `mappings`: Array of replacement sequences for repeated characters
+- `replace` (optional): Single character replacement for a single occurrence
+
+The `replace` key is useful when you want to replace even a single occurrence of a character with something else. For example, in TCL where `{` is dominant, you can configure it so that hitting `(` once will insert `{` instead:
+
 ```json
 "stuttering.mappings": {
   "(": [
@@ -49,7 +109,7 @@ Define mappings for character replacements (language-specific or default):
     {
       "languages": ["tcl"],
       "mappings": ["[", "("],
-      "replace": "{"
+      "replace": "{"  // Single ( will be replaced by {
     },
     {
       "languages": ["default"],

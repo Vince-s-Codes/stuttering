@@ -2,88 +2,17 @@
 // SPDX-License-Identifier: MIT
 
 import * as vscode from 'vscode';
-import { getClosingCharacter, getLanguageMappings, getReplacements, getSequence } from './utilities';
-
-// Track changes made by this extension to avoid recursive processing
-// Structure: {document: {changes: Map<key, {text: string, timeout: ReturnType<typeof setTimeout>}>, globalTimeout: ReturnType<typeof setTimeout> | null}}
-const extensionChanges = new WeakMap<vscode.TextDocument, {
-  changes: Map<string, {text: string, timeout: ReturnType<typeof setTimeout>}>
-  globalTimeout: ReturnType<typeof setTimeout> | null}>();
-
-// Timeout duration in milliseconds (30 seconds)
-const EXTENSION_CHANGE_TIMEOUT = 30000;
-
-/**
- * Check if a change was made by this extension
- */
-function isExtensionChange(document: vscode.TextDocument, range: vscode.Range, text: string): boolean {
-  const changesMap = extensionChanges.get(document);
-  const key = `${range.start.line}:${range.start.character}`;
-
-  if (!changesMap) {
-    return false;
-  }
-
-  const change = changesMap.changes.get(key);
-  if (!change) {
-    return false;
-  }
-
-  // Only match if the text is the same
-  return change.text === text;
-}
-
-/**
- * Mark a change as made by this extension
- */
-function markExtensionChange(document: vscode.TextDocument, range: vscode.Range, text: string): void {
-  let changesMap = extensionChanges.get(document);
-  const key = `${range.start.line}:${range.start.character}`;
-
-  if (!changesMap) {
-    changesMap = {
-      changes: new Map(),
-      globalTimeout: null
-    };
-    extensionChanges.set(document, changesMap);
-  }
-
-    // Clear any existing timeout for this change
-  const existingChange = changesMap.changes.get(key);
-  if (existingChange && existingChange.timeout) {
-    clearTimeout(existingChange.timeout);
-  }
-
-  // Store the change with its text
-  const timeout = setTimeout(() => {
-    changesMap?.changes.delete(key);
-
-    // If no more changes, clear the global timeout
-    if (changesMap?.changes.size === 0) {
-      if (changesMap.globalTimeout) {
-        clearTimeout(changesMap.globalTimeout);
-        changesMap.globalTimeout = null;
-      }
-      extensionChanges.delete(document);
-    }
-  }, EXTENSION_CHANGE_TIMEOUT);
-
-  changesMap.changes.set(key, { text, timeout });
-
-    // Set/reset global timeout to clean up if no changes remain
-  if (changesMap.globalTimeout) {
-    clearTimeout(changesMap.globalTimeout);
-  }
-
-  changesMap.globalTimeout = setTimeout(() => {
-    if (changesMap?.changes.size === 0) {
-      extensionChanges.delete(document);
-    }
-  }, EXTENSION_CHANGE_TIMEOUT);
-}
+import { getClosingCharacter, getLanguageMappings, getReplacements } from './utilities';
+import { isExtensionChange, markExtensionChange } from './cache';
+import { isStutteringTemporarilyDisabled, reenableAfterTemporaryDisable } from './commands';
 
 /**
  * Handles text document changes for stuttering functionality
+ *
+ * @param event The text document change event
+ * @param editor The text editor where the change occurred
+ * @param mappings The language mappings configuration for stuttering patterns
+ * @returns A promise that resolves when all edits are complete
  */
 export function handleTextChange(
   event: vscode.TextDocumentChangeEvent,
@@ -115,7 +44,10 @@ export function handleTextChange(
     ), change.text);
   });
 
-  if (userChanges.length === 0) {
+  if (userChanges.length === 0 || isStutteringTemporarilyDisabled()) {
+    // If there are no user changes but stuttering was temporarily disabled,
+    // re-enable it after any change (even if filtered out)
+    reenableAfterTemporaryDisable();
     return;
   }
 
@@ -168,7 +100,7 @@ export function handleTextChange(
 
           if (sequence) {
             let matched = false;
-            const replacements = getReplacements(currentChar, sequence);
+            const replacements = getReplacements(currentChar, sequence, document.languageId);
 
             for (const rep of replacements) {
               if (previous.endsWith(rep.previous)) {
@@ -186,7 +118,7 @@ export function handleTextChange(
                 const fromReplacement = Math.min(escapeCharacter.length, replacement.length);
                 const fromPrevious = escapeCharacter.length - fromReplacement;
 
-                replacement = replacement.slice(0, -fromReplacement) + currentChar;
+                replacement = replacement.slice(0, -fromReplacement) + (sequence.replace ? sequence.replace : currentChar);
                 if (fromPrevious > 0) {
                   previousText = previousText.slice(0, -fromPrevious);
                   baseOffset -= fromPrevious;

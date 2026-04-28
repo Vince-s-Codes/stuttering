@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.0.1] - 2026-04-25
+## [1.0.0] - 2026-04-28
 
 ### Added
 
@@ -25,15 +25,3 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **UI/UX:**
   - Status bar indicator showing extension activation status.
   - Toggle command to enable/disable the extension.
-
-### Technical Details
-- **Character Replacement:**
-  - Uses a stack-based approach to determine appropriate closing characters.
-  - Supports configurable sequences of replacements.
-- **Performance:**
-  - Efficiently processes text changes in real-time.
-  - Minimal overhead during normal editing.
-
-### Limitations
-- Currently focused on bracket/parenthesis-like characters.
-- Language-specific mappings need to be manually configured.

@@ -25,6 +25,22 @@
       {
         "command": "stuttering.toggle",
         "title": "Toggle Stuttering Extension"
+      },
+      {
+        "command": "stuttering.enable",
+        "title": "Enable Stuttering Extension"
+      },
+      {
+        "command": "stuttering.disable",
+        "title": "Disable Stuttering Extension"
+      },
+      {
+        "command": "stuttering.pasteWithoutStuttering",
+        "title": "Paste Without Stuttering"
+      },
+      {
+        "command": "stuttering.disableTemporarily",
+        "title": "Temporarily Disable Stuttering"
       }
     ],
     "configuration": {

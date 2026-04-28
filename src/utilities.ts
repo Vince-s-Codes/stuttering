@@ -2,6 +2,12 @@
 // SPDX-License-Identifier: MIT
 
 import * as vscode from 'vscode';
+import {
+  getCachedLanguageMappings,
+  cacheLanguageMappings,
+  getCachedReplacements,
+  cacheReplacements
+} from './cache';
 
 /**
  * Interface for mapping configuration
@@ -25,6 +31,12 @@ export function getLanguageMappings(
   mappings: Record<string, MappingConfig[]>,
   languageId: string
 ): {matchingMappings: Record<string, MappingConfig>, maxPreviousLength: number} {
+  // Check if we have cached mappings for this language
+  const cached = getCachedLanguageMappings(languageId);
+  if (cached) {
+    return cached;
+  }
+
   const matchingMappings: Record<string, MappingConfig> = {};
   let maxPreviousLength = 0;
 
@@ -36,7 +48,7 @@ export function getLanguageMappings(
       matchingMappings[key] = sequence;
 
       // Generate replacements to find the maximum previous length
-      const replacements = getReplacements(key, sequence);
+      const replacements = getReplacements(key, sequence, languageId);
 
       // Find the maximum previous length for this key
       for (const replacement of replacements) {
@@ -46,6 +58,9 @@ export function getLanguageMappings(
       }
     }
   }
+
+  // Cache the results for future use
+  cacheLanguageMappings(languageId, matchingMappings, maxPreviousLength);
 
   return { matchingMappings, maxPreviousLength };
 }
@@ -85,11 +100,21 @@ export function getClosingCharacter(editor: vscode.TextEditor, offset: number): 
  *
  * @param key The initial key character that triggers the replacements
  * @param sequence Object containing the sequence of replacements for the key, or null
+ * @param languageId The language ID for cache key generation
  * @returns An array of objects, each containing:
  *          - previous: The string to be replaced (initially the key, then each subsequent replacement)
  *          - replacement: The string that should replace the previous string
  */
-export function getReplacements(key: string, sequence: MappingConfig|null) {
+export function getReplacements(key: string, sequence: MappingConfig|null, languageId: string) {
+  // Create a cache key based on key and languageId
+  const cacheKey = `${languageId}:${key}`;
+
+  // Check if we have cached replacements
+  const cached = getCachedReplacements(cacheKey);
+  if (cached) {
+    return cached;
+  }
+
   const result: {previous: string, replacement: string}[] = [];
   let previous = key;
 
@@ -98,7 +123,14 @@ export function getReplacements(key: string, sequence: MappingConfig|null) {
       result.unshift({previous: previous, replacement: k});
       previous = k;
     });
+    if(sequence.replace) {
+      result[result.length - 1].previous = sequence.replace;
+    }
   }
+
+  // Cache the result for future use
+  cacheReplacements(cacheKey, result);
+
   return result;
 }
 

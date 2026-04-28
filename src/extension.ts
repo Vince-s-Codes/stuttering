@@ -2,8 +2,9 @@
 // SPDX-License-Identifier: MIT
 
 import * as vscode from 'vscode';
-import { isStutteringActive, toggleStuttering, setStatusBarItem } from './commands';
+import { disableStuttering, disableTemporarily, enableStuttering, isStutteringActive, toggleStuttering, setStatusBarItem, pasteWithoutStuttering } from './commands';
 import { handleTextChange } from './StutteringProvider';
+import { clearAllCaches } from './cache';
 
 export function activate(context: vscode.ExtensionContext) {
   const config = vscode.workspace.getConfiguration('stuttering');
@@ -15,6 +16,8 @@ export function activate(context: vscode.ExtensionContext) {
 
     if (event.affectsConfiguration('stuttering.mappings')) {
       mappings = config.get<Record<string, {languages: string[], mappings: string[], replace: string}[]>>('mappings', {});
+      // Clear caches when mappings configuration changes
+      clearAllCaches();
     }
   });
   context.subscriptions.push(configWatcher);
@@ -30,7 +33,7 @@ export function activate(context: vscode.ExtensionContext) {
 
     // Register text change handler
   const textEdit = vscode.workspace.onDidChangeTextDocument((event) => {
-    if (!isStutteringActive()) {
+    if(!isStutteringActive()) {
       return;
     }
 
@@ -39,13 +42,19 @@ export function activate(context: vscode.ExtensionContext) {
       return;
     }
 
+    // Process the text change
     handleTextChange(event, editor, mappings);
   });
   context.subscriptions.push(textEdit);
 
-  // Register toggle command
+      // Register commands
   const toggleCommand = vscode.commands.registerCommand('stuttering.toggle', toggleStuttering);
-  context.subscriptions.push(toggleCommand);
+  const enableCommand = vscode.commands.registerCommand('stuttering.enable', enableStuttering);
+  const disableCommand = vscode.commands.registerCommand('stuttering.disable', disableStuttering);
+  const pasteCommand = vscode.commands.registerCommand('stuttering.pasteWithoutStuttering', pasteWithoutStuttering);
+  const tempDisableCommand = vscode.commands.registerCommand('stuttering.disableTemporarily', disableTemporarily);
+
+  context.subscriptions.push(toggleCommand, enableCommand, disableCommand, pasteCommand, tempDisableCommand);
 }
 
 export function deactivate() {}
