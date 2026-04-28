@@ -8,18 +8,50 @@ A lightweight VSCode extension that replaces repeated characters with customizab
 - **Fully customizable**: Define your own replacement rules in VSCode settings
 - **Lightweight**: Minimal performance impact
 
-### Example Replacements
+## Example
 
-| Input | Output |
-|-------|--------|
-| `&&`  | ` && ` |
-| `>>`  | ` >> ` |
-| `((`  | `{`    |
-| `(((` | `[`    |
-| `))`  | `}`    |
-| `)))` | `]`    |
+![Demo](media/demo.gif)
+
+This example uses the following mapping configuration:
+
+```json
+"stuttering.mappings": {
+  "/": [
+    {
+      "languages": ["verilog", "systemverilog"],
+      "mappings": [
+        "// ",
+        "////////////////////////////////////////////////////////////////////////////////",
+        "////////////////////////////////////////////////////////////////////////////////\n// $\n////////////////////////////////////////////////////////////////////////////////"
+      ]
+    }
+  ],
+  "&": [
+    {
+      "languages": ["verilog", "systemverilog"],
+      "mappings": [" & ", " && "]
+    }
+  ],
+  "(": [
+    {
+      "languages": ["verilog", "systemverilog"],
+      "mappings": ["[", "{"]
+    }
+  ],
+  ",": [
+    {
+      "languages": ["verilog", "systemverilog"],
+      "mappings": [" <= "]
+    }
+  ]
+}
+```
 
 > **Note**: All replacements are configurable via settings.
+
+> **Cursor Positioning**: The `positionMarkerCharacter` (`$` by default) is used to specify the final cursor position after replacement.
+> - In the example above, `////////////////////////////////////////////////////////////////////////////////\n// $\n////////////////////////////////////////////////////////////////////////////////` will place the cursor after the `// $` line.
+> - If you want to include the `positionMarkerCharacter` itself in the output (without moving the cursor), escape it with a backslash (`\$`).
 
 ## Commands
 
@@ -61,7 +93,7 @@ To temporarily disable stuttering (useful for middle-click paste on Linux), add 
 
 ```json
 {
-  "key": "tab s",
+  "key": "alt+s",
   "command": "stuttering.disableTemporarily",
   "when": "editorTextFocus && stuttering.isActive"
 }
@@ -125,3 +157,17 @@ Automatically use the appropriate closing character:
 "stuttering.smartClose": true
 ```
 - Default: `true`
+
+### `stuttering.positionMarker`
+Enable/disable the position marker for cursor placement after replacement:
+```json
+"stuttering.positionMarker": true
+```
+- Default: `true`
+
+### `stuttering.positionMarkerCharacter`
+The character used to mark cursor position after replacement:
+```json
+"stuttering.positionMarkerCharacter": "$"
+```
+- Default: `"$"`

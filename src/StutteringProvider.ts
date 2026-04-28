@@ -2,7 +2,15 @@
 // SPDX-License-Identifier: MIT
 
 import * as vscode from 'vscode';
-import { getClosingCharacter, getLanguageMappings, getReplacements } from './utilities';
+import {
+  getClosingCharacter,
+  getLanguageMappings,
+  getReplacements,
+  getIndent,
+  fixReplacement,
+  insertAtIndex,
+  removeAtIndex
+} from './utilities';
 import { isExtensionChange, markExtensionChange } from './cache';
 import { isStutteringTemporarilyDisabled, reenableAfterTemporaryDisable } from './commands';
 
@@ -62,17 +70,22 @@ export function handleTextChange(
 
   //console.log('stuttering:: matchingMappings', matchingMappings, 'maxPreviousLength', maxPreviousLength);
 
-  // Get configuration for escape character and smart close
+  // Get configuration for escape character, smart close, and position marker
   const config = vscode.workspace.getConfiguration('stuttering');
   const escape = config.get<boolean>('escape', true);
   const escapeCharacter = config.get<string>('escapeCharacter', "'");
   const smartClose = config.get<boolean>('smartClose', true);
+  const positionMarker = config.get<boolean>('positionMarker', true);
+  const positionMarkerCharacter = config.get<string>('positionMarkerCharacter', "$");
 
   // Process each user-made change
   const editPromises = userChanges.map(change => {
     return new Promise<void>((resolve) => {
       const text = change.text;
       let baseOffset = change.rangeOffset;
+
+      // Get the indentation of the current line
+      const indent = getIndent(document, baseOffset);
 
       // Extract the previous text based on the biggest size from the mappings
       let previousText = document.getText(new vscode.Range(
@@ -81,20 +94,16 @@ export function handleTextChange(
       ));
 
       let closingChar = getClosingCharacter(editor, change.rangeOffset);
-      let replacement = '';
+      let replacement = {replacement: '', index: 0};
 
       // Process each character in the text
       for (let i = 0; i < text.length; i++) {
         const currentChar = text[i];
-        const previous = previousText + replacement;
+        const previous = previousText + replacement.replacement;
 
         if (smartClose && [')', ']', '}'].includes(currentChar)) {
-          if (closingChar === null) {
-            replacement += currentChar;
-          } else {
-            replacement += closingChar;
-            closingChar = null;
-          }
+          replacement = insertAtIndex(replacement, (closingChar === null ? currentChar : closingChar), positionMarker, positionMarkerCharacter);
+          closingChar = null;
         } else if (Object.keys(matchingMappings).includes(currentChar)) {
           const sequence = matchingMappings[currentChar];
 
@@ -104,10 +113,12 @@ export function handleTextChange(
 
             for (const rep of replacements) {
               if (previous.endsWith(rep.previous)) {
-                const fromReplacement = Math.min(rep.previous.length, replacement.length);
+                const fromReplacement = Math.min(rep.previous.length, replacement.index);
                 const fromPrevious = rep.previous.length - fromReplacement;
+                const fixedReplacement = fixReplacement(rep.replacement, indent);
 
-                replacement = replacement.slice(0, -fromReplacement) + rep.replacement;
+                replacement = removeAtIndex(replacement, fromReplacement);
+                replacement = insertAtIndex(replacement, fixedReplacement, positionMarker, positionMarkerCharacter);
                 if (fromPrevious > 0) {
                   previousText = previousText.slice(0, -fromPrevious);
                   baseOffset -= fromPrevious;
@@ -115,10 +126,11 @@ export function handleTextChange(
                 matched = true;
                 break;
               } else if (escape && previous.endsWith(rep.previous + escapeCharacter)) {
-                const fromReplacement = Math.min(escapeCharacter.length, replacement.length);
+                const fromReplacement = Math.min(escapeCharacter.length, replacement.index);
                 const fromPrevious = escapeCharacter.length - fromReplacement;
 
-                replacement = replacement.slice(0, -fromReplacement) + (sequence.replace ? sequence.replace : currentChar);
+                replacement = removeAtIndex(replacement, fromReplacement);
+                replacement = insertAtIndex(replacement, (sequence.replace ? sequence.replace : currentChar), positionMarker, positionMarkerCharacter);
                 if (fromPrevious > 0) {
                   previousText = previousText.slice(0, -fromPrevious);
                   baseOffset -= fromPrevious;
@@ -128,30 +140,34 @@ export function handleTextChange(
               }
             }
             if (!matched) {
-              if (sequence.replace) {
-                replacement += sequence.replace;
-              } else {
-                replacement += currentChar;
-              }
+              replacement = insertAtIndex(replacement, (sequence.replace ? sequence.replace : currentChar), positionMarker, positionMarkerCharacter);
             }
           } else {
-            replacement += currentChar;
+            replacement = insertAtIndex(replacement, currentChar, positionMarker, positionMarkerCharacter);
           }
         } else {
-          replacement += currentChar;
+          replacement = insertAtIndex(replacement, currentChar, positionMarker, positionMarkerCharacter);
         }
       }
 
-      if (baseOffset !== change.rangeOffset || replacement !== text) {
+      if (baseOffset !== change.rangeOffset || replacement.replacement !== text) {
         editor.edit(editBuilder => {
           const editRange = new vscode.Range(
             document.positionAt(baseOffset),
             document.positionAt(change.rangeOffset + text.length)
           );
 
-          editBuilder.replace(editRange, replacement);
-          markExtensionChange(document, editRange, replacement);
-        }).then(() => resolve());
+          editBuilder.replace(editRange, replacement.replacement);
+          markExtensionChange(document, editRange, replacement.replacement);
+        }).then(() => {
+          if (positionMarker && replacement.index !== replacement.replacement.length) {
+            // Move cursor to the position marker index
+            const cursorPosition = document.positionAt(baseOffset + replacement.index);
+
+            editor.selection = new vscode.Selection(cursorPosition, cursorPosition);
+          }
+          resolve();
+        });
       } else {
         resolve();
       }

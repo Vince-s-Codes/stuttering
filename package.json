@@ -3,7 +3,7 @@
   "publisher": "VincesCodes",
   "displayName": "Stuttering",
   "description": "This extension changes double or triple characters into other character to avoid key combination",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "icon": "./media/icon.png",
   "homepage": "https://github.com/Vince-s-Codes/stuttering#readme",
   "bugs": {
@@ -58,42 +58,23 @@
         },
         "stuttering.mappings": {
           "type": "object",
-          "default": {
-            "(": [
-              {
-                "languages": [
-                  "verilog",
-                  "systemverilog"
-                ],
-                "mappings": [
-                  "[", "{"
-                ]
-              },
-              {
-                "languages": [
-                  "tcl"
-                ],
-                "mappings": [
-                  "[", "("
-                ],
-                "replace": "{"
-              },
-              {
-                "languages": [
-                  "default"
-                ],
-                "mappings": [
-                  "{", "["
-                ]
-              }
-            ]
-          },
+          "default": {},
           "description": "Define suttering mapping, everytime you hit multiple times a key, a replacement is computed based on this mapping."
         },
         "stuttering.smartClose": {
           "type": "boolean",
           "default": true,
           "description": "Use the appropriate ')', ']' or '}' when hitting one of this key"
+        },
+        "stuttering.positionMarker": {
+          "type": "boolean",
+          "default": true,
+          "description": "When on, a position marker can be used to specify the position of the cursor after replacement"
+        },
+        "stuttering.positionMarkerCharacter": {
+          "type": "string",
+          "default": "$",
+          "description": "The position marker character which will specify the position of the cursor after replacement"
         }
       }
     }

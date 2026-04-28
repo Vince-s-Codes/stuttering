@@ -10,6 +10,53 @@ import {
 } from './cache';
 
 /**
+ * Gets the indentation of a line in the document
+ *
+ * @param document The text document
+ * @param offset The offset position in the document
+ * @returns The indentation string (spaces or tabs) at the beginning of the line
+ */
+export function getIndent(document: vscode.TextDocument, offset: number): string {
+  const position = document.positionAt(offset);
+  const line = document.lineAt(position.line);
+
+  // Find the first non-whitespace character
+  const firstNonWs = line.firstNonWhitespaceCharacterIndex;
+
+  // Return the indentation (whitespace before the first non-whitespace character)
+  return line.text.substring(0, firstNonWs >= 0 ? firstNonWs : line.text.length);
+}
+
+/**
+ * Fixes indentation for multi-line replacements
+ *
+ * If the replacement text contains newlines, this function ensures each line
+ * is properly indented according to the provided indentation string.
+ *
+ * @param replacement The replacement text to fix
+ * @param indent The indentation string to use for each line
+ * @returns The replacement text with proper indentation
+ */
+export function fixReplacement(replacement: string, indent: string): string {
+  // If the replacement doesn't contain newlines, return it as-is
+  if (!replacement.includes('\n')) {
+    return replacement;
+  }
+
+  // Split the replacement into lines and indent each line (except the first)
+  const lines = replacement.split('\n');
+  if (lines.length > 1) {
+    // Indent all lines after the first one
+    for (let i = 1; i < lines.length; i++) {
+      lines[i] = indent + lines[i];
+    }
+    return lines.join('\n');
+  }
+
+  return replacement;
+}
+
+/**
  * Interface for mapping configuration
  */
 interface MappingConfig {
@@ -156,4 +203,72 @@ export function getSequence(sequences: MappingConfig[], language: string) {
     return sequences[index];
   }
   return null;
+}
+
+/**
+ * Inserts a string at a specific index in a replacement object.
+ * Handles position markers if present in the inserted text.
+ *
+ * @param replacement The replacement object with `replacement` string and `index` number
+ * @param toInsert The string to insert
+ * @param positionMarker Whether position markers are enabled
+ * @param positionMarkerCharacter The character used for position markers
+ * @returns The updated replacement object
+ */
+export function insertAtIndex(
+  replacement: {replacement: string, index: number},
+  toInsert: string,
+  positionMarker: boolean,
+  positionMarkerCharacter: string
+): {replacement: string, index: number} {
+  let position = toInsert.length;
+  let text = toInsert;
+
+  if(positionMarker) {
+    // Process position markers in the text
+    let processedText = '';
+    let markerPos = -1;
+
+    for (let i = 0; i < text.length; i++) {
+      if (text[i] === positionMarkerCharacter && (i === 0 || text[i - 1] !== '\\')) {
+        // Found a position marker not preceded by backslash
+        markerPos = i;
+      } else if (text[i] === '\\' && i + 1 < text.length && text[i + 1] === positionMarkerCharacter) {
+        // Found escaped position marker, skip the backslash
+        processedText += text[i + 1];
+        i++; // Skip next character
+      } else {
+        processedText += text[i];
+      }
+    }
+    text = processedText;
+    if (markerPos >= 0) {
+      position = markerPos;
+    } else {
+      position = text.length;
+    }
+  }
+  const newReplacement = replacement.replacement.slice(0, replacement.index) + text + replacement.replacement.slice(replacement.index);
+  const newIndex = replacement.index + position;
+
+  return {
+    replacement: newReplacement,
+    index: newIndex
+  };
+}
+
+/**
+ * Removes characters from a replacement object at the current index.
+ *
+ * @param replacement The replacement object with `replacement` string and `index` number
+ * @param count The number of characters to remove
+ * @returns The updated replacement object
+ */
+export function removeAtIndex(replacement: {replacement: string, index: number}, count: number): {replacement: string, index: number} {
+  const start = replacement.index - count;
+  const newReplacement = replacement.replacement.slice(0, start) + replacement.replacement.slice(replacement.index);
+  return {
+    replacement: newReplacement,
+    index: start
+  };
 }
