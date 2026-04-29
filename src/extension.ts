@@ -7,15 +7,27 @@ import { handleTextChange } from './StutteringProvider';
 import { clearAllCaches } from './cache';
 
 export function activate(context: vscode.ExtensionContext) {
-  const config = vscode.workspace.getConfiguration('stuttering');
-  let mappings = config.get<Record<string, {languages: string[], mappings: string[], replace: string}[]>>('mappings', {});
+  // Initialize configuration
+  let stutteringConfig = getStutteringConfig();
+
+  function getStutteringConfig() {
+    const config = vscode.workspace.getConfiguration('stuttering');
+
+    return {
+      mappings: config.get<Record<string, {languages: string[], mappings: string[], replace: string}[]>>('mappings', {}),
+      processMultiLine: config.get<boolean>('processMultiLine', false),
+      escape: config.get<boolean>('escape', true),
+      escapeCharacter: config.get<string>('escapeCharacter', "'"),
+      smartClose: config.get<boolean>('smartClose', true),
+      positionMarker: config.get<boolean>('positionMarker', true),
+      positionMarkerCharacter: config.get<string>('positionMarkerCharacter', "$")
+    };
+  }
 
   // Watch for configuration changes
   const configWatcher = vscode.workspace.onDidChangeConfiguration((event) => {
-    const config = vscode.workspace.getConfiguration('stuttering');
-
-    if (event.affectsConfiguration('stuttering.mappings')) {
-      mappings = config.get<Record<string, {languages: string[], mappings: string[], replace: string}[]>>('mappings', {});
+    if (event.affectsConfiguration('stuttering')) {
+      stutteringConfig = getStutteringConfig();
       // Clear caches when mappings configuration changes
       clearAllCaches();
     }
@@ -43,7 +55,7 @@ export function activate(context: vscode.ExtensionContext) {
     }
 
     // Process the text change
-    handleTextChange(event, editor, mappings);
+    handleTextChange(event, editor, stutteringConfig);
   });
   context.subscriptions.push(textEdit);
 

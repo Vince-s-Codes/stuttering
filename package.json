@@ -75,6 +75,11 @@
           "type": "string",
           "default": "$",
           "description": "The position marker character which will specify the position of the cursor after replacement"
+        },
+        "stuttering.processMultiLine": {
+          "type": "boolean",
+          "default": false,
+          "description": "When on, performs stuttering replacement on complete lines or multi-line selections"
         }
       }
     }

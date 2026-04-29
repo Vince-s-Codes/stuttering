@@ -74,7 +74,7 @@ To paste without stuttering using the standard paste shortcut (Ctrl+V/Cmd+V), ad
 {
   "key": "ctrl+v",
   "command": "stuttering.pasteWithoutStuttering",
-  "when": "editorTextFocus && stuttering.isActive"
+  "when": "editorTextFocus"
 }
 ```
 
@@ -84,7 +84,7 @@ Or for macOS:
 {
   "key": "cmd+v",
   "command": "stuttering.pasteWithoutStuttering",
-  "when": "editorTextFocus && stuttering.isActive"
+  "when": "editorTextFocus"
 }
 ```
 
@@ -95,7 +95,7 @@ To temporarily disable stuttering (useful for middle-click paste on Linux), add 
 {
   "key": "alt+s",
   "command": "stuttering.disableTemporarily",
-  "when": "editorTextFocus && stuttering.isActive"
+  "when": "editorTextFocus"
 }
 ```
 
@@ -168,6 +168,14 @@ Enable/disable the position marker for cursor placement after replacement:
 ### `stuttering.positionMarkerCharacter`
 The character used to mark cursor position after replacement:
 ```json
-"stuttering.positionMarkerCharacter": "$"
+"stuttering.positionMarkerCharacter": ""
 ```
-- Default: `"$"`
+- Default: `""`
+
+### `stuttering.processMultiLine`
+Enable/disable multi-line processing:
+```json
+"stuttering.processMultiLine": false
+```
+- Default: `false`
+- When enabled, stuttering replacement will be performed on complete lines or multi-line selections

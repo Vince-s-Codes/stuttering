@@ -14,6 +14,16 @@ import {
 import { isExtensionChange, markExtensionChange } from './cache';
 import { isStutteringTemporarilyDisabled, reenableAfterTemporaryDisable } from './commands';
 
+interface StutteringConfig {
+  mappings: Record<string, {languages: string[], mappings: string[], replace: string}[]>;
+  processMultiLine: boolean;
+  escape: boolean;
+  escapeCharacter: string;
+  smartClose: boolean;
+  positionMarker: boolean;
+  positionMarkerCharacter: string;
+}
+
 /**
  * Handles text document changes for stuttering functionality
  *
@@ -25,11 +35,20 @@ import { isStutteringTemporarilyDisabled, reenableAfterTemporaryDisable } from '
 export function handleTextChange(
   event: vscode.TextDocumentChangeEvent,
   editor: vscode.TextEditor,
-  mappings: Record<string, {languages: string[], mappings: string[], replace: string}[]>
+  config: StutteringConfig
 ) {
   const document = event.document;
   const changes = event.contentChanges;
   const reason = event.reason;
+  const {
+    mappings,
+    processMultiLine,
+    escape,
+    escapeCharacter,
+    smartClose,
+    positionMarker,
+    positionMarkerCharacter
+  } = config;
 
   // Only process user-initiated changes
   if (reason === vscode.TextDocumentChangeReason.Undo ||
@@ -43,6 +62,16 @@ export function handleTextChange(
     // Skip empty changes
     if (change.text.length === 0) {
       return false;
+    }
+
+    // If multi-line processing is disabled, skip changes that span multiple lines
+    if (!processMultiLine) {
+      const startPos = document.positionAt(change.rangeOffset);
+      const endPos = document.positionAt(change.rangeOffset + change.text.length + 1);
+
+      if (startPos.character === 0 && startPos.line !== endPos.line) {
+        return false;
+      }
     }
 
     // Skip changes made by this extension
@@ -59,24 +88,12 @@ export function handleTextChange(
     return;
   }
 
-  //console.log('stuttering:: userChanges', userChanges);
-
-    // Get mappings for the current language and determine the maximum previous text length to check
+  // Get mappings for the current language and determine the maximum previous text length to check
   const { matchingMappings, maxPreviousLength } = getLanguageMappings(mappings, document.languageId);
 
   if (Object.keys(matchingMappings).length === 0) {
     return; // No mappings for this language
   }
-
-  //console.log('stuttering:: matchingMappings', matchingMappings, 'maxPreviousLength', maxPreviousLength);
-
-  // Get configuration for escape character, smart close, and position marker
-  const config = vscode.workspace.getConfiguration('stuttering');
-  const escape = config.get<boolean>('escape', true);
-  const escapeCharacter = config.get<string>('escapeCharacter', "'");
-  const smartClose = config.get<boolean>('smartClose', true);
-  const positionMarker = config.get<boolean>('positionMarker', true);
-  const positionMarkerCharacter = config.get<string>('positionMarkerCharacter', "$");
 
   // Process each user-made change
   const editPromises = userChanges.map(change => {
