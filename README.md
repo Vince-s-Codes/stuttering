@@ -107,6 +107,84 @@ This keybinding allows you to quickly disable stuttering before making a change 
 
 This extension contributes the following settings:
 
+### Status Bar Customization
+Customize the appearance of the status bar indicator:
+
+- Show/hide the status bar item
+- Toggle the checkmark/X icon
+- Set different text for enabled/disabled states
+- Customize background and foreground colors
+
+## Status Bar Settings
+
+### `stuttering.statusBar.show`
+Show or hide the status bar indicator:
+```json
+"stuttering.statusBar.show": true
+```
+- Default: `true`
+
+### `stuttering.statusBar.icon`
+Show or hide the checkmark/X icon:
+```json
+"stuttering.statusBar.icon": true
+```
+- Default: `true`
+
+### `stuttering.statusBar.enabledText`
+Text to display when the extension is enabled:
+```json
+"stuttering.statusBar.enabledText": "Stuttering"
+```
+- Default: `"Stuttering"`
+
+### `stuttering.statusBar.disabledText`
+Text to display when the extension is disabled:
+```json
+"stuttering.statusBar.disabledText": "Stuttering"
+```
+- Default: `"Stuttering"`
+
+### `stuttering.statusBar.enabled.background`
+Background color when enabled (default, prominent, error, or warning):
+```json
+"stuttering.statusBar.enabled.background": "default"
+```
+- Default: `"default"`
+
+### `stuttering.statusBar.enabled.foreground`
+Foreground color when enabled (default, prominent, error, warning, or custom):
+```json
+"stuttering.statusBar.enabled.foreground": "default"
+```
+- Default: `"default"`
+
+For custom foreground color, use:
+```json
+"stuttering.statusBar.enabled.customForeground": "#FF0000"
+```
+
+### `stuttering.statusBar.disabled.background`
+Background color when disabled (default, prominent, error, or warning):
+```json
+"stuttering.statusBar.disabled.background": "default"
+```
+- Default: `"default"`
+
+### `stuttering.statusBar.disabled.foreground`
+Foreground color when disabled (default, prominent, error, warning, or custom):
+```json
+"stuttering.statusBar.disabled.foreground": "default"
+```
+- Default: `"default"`
+
+For custom foreground color, use:
+```json
+"stuttering.statusBar.disabled.customForeground": "#FF0000"
+```
+
+This extension contributes the following settings:
+
 ### `stuttering.escape`
 Enable/disable the escape character:
 ```json

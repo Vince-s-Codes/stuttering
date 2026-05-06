@@ -2,7 +2,17 @@
 // SPDX-License-Identifier: MIT
 
 import * as vscode from 'vscode';
-import { disableStuttering, disableTemporarily, enableStuttering, isStutteringActive, toggleStuttering, setStatusBarItem, pasteWithoutStuttering } from './commands';
+import {
+  disableStuttering,
+  disableTemporarily,
+  enableStuttering,
+  setStatusBarItem,
+  pasteWithoutStuttering,
+  isStutteringActive,
+  toggleStuttering,
+  updateStatusBar,
+  updateStutteringConfig
+} from './commands';
 import { handleTextChange } from './StutteringProvider';
 import { clearAllCaches } from './cache';
 import { setLogLevel, LogLevel, LogLevelType } from './log';
@@ -35,7 +45,23 @@ export function activate(context: vscode.ExtensionContext) {
       escapeCharacter: config.get<string>('escapeCharacter', "'"),
       smartClose: config.get<boolean>('smartClose', true),
       positionMarker: config.get<boolean>('positionMarker', true),
-      positionMarkerCharacter: config.get<string>('positionMarkerCharacter', "$")
+      positionMarkerCharacter: config.get<string>('positionMarkerCharacter', "$"),
+      statusBar: config.get('statusBar', {
+        show: true,
+        icon: true,
+        enabledText: 'Stuttering',
+        disabledText: 'Stuttering',
+        enabled: {
+          background: 'default',
+          foreground: 'default',
+          customForeground: ''
+        },
+        disabled: {
+          background: 'default',
+          foreground: 'default',
+          customForeground: ''
+        }
+      })
     };
   }
 
@@ -43,6 +69,8 @@ export function activate(context: vscode.ExtensionContext) {
   const configWatcher = vscode.workspace.onDidChangeConfiguration((event) => {
     if (event.affectsConfiguration('stuttering')) {
       stutteringConfig = getStutteringConfig();
+      updateStutteringConfig(stutteringConfig);
+      updateStatusBar();
       // Clear caches when mappings configuration changes
       clearAllCaches();
     }
@@ -51,14 +79,14 @@ export function activate(context: vscode.ExtensionContext) {
 
   // Create and set status bar item
   const statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
-  statusBarItem.text = "$(check) Stuttering";
-  statusBarItem.command = 'stuttering.toggle';
-  statusBarItem.tooltip = 'Toggle Stuttering Extension';
-  statusBarItem.show();
   setStatusBarItem(statusBarItem);
   context.subscriptions.push(statusBarItem);
 
-    // Register text change handler
+  // Initial update
+  updateStutteringConfig(stutteringConfig);
+  updateStatusBar();
+
+  // Register text change handler
   const textEdit = vscode.workspace.onDidChangeTextDocument((event) => {
     if(!isStutteringActive()) {
       return;
@@ -74,7 +102,7 @@ export function activate(context: vscode.ExtensionContext) {
   });
   context.subscriptions.push(textEdit);
 
-      // Register commands
+  // Register commands
   const toggleCommand = vscode.commands.registerCommand('stuttering.toggle', toggleStuttering);
   const enableCommand = vscode.commands.registerCommand('stuttering.enable', enableStuttering);
   const disableCommand = vscode.commands.registerCommand('stuttering.disable', disableStuttering);
