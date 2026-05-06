@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Debugging Support:**
+  - Added `stuttering.logLevel` configuration option with levels: none, error, warning, note, debug
+  - Implemented logging functionality with debug, note, warning, and error levels
+  - Added logging infrastructure similar to auto-wrap extension
+
 ## [1.0.0] - 2026-04-29
 
 ### Added
