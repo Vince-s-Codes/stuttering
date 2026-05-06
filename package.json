@@ -86,6 +86,101 @@
           "enum": ["none", "error", "warning", "note", "debug"],
           "default": "none",
           "description": "Log level for stuttering extension (none, error, warning, note, debug)"
+        },
+        "stuttering.statusBar": {
+          "type": "object",
+          "default": {
+            "show": true,
+            "icon": true,
+            "enabledText": "Stuttering",
+            "disabledText": "Stuttering",
+            "enabled": {
+              "background": "default",
+              "foreground": "default",
+              "customForeground": ""
+            },
+            "disabled": {
+              "background": "default",
+              "foreground": "default",
+              "customForeground": ""
+            }
+          },
+          "properties": {
+            "show": {
+              "type": "boolean",
+              "default": true,
+              "description": "Show status bar item"
+            },
+            "icon": {
+              "type": "boolean",
+              "default": true,
+              "description": "Show check/x icon in status bar"
+            },
+            "enabledText": {
+              "type": "string",
+              "default": "Stuttering",
+              "description": "Text to display when enabled (set to empty string for no text)"
+            },
+            "disabledText": {
+              "type": "string",
+              "default": "Stuttering",
+              "description": "Text to display when disabled (set to empty string for no text)"
+            },
+            "enabled": {
+              "type": "object",
+              "default": {
+                "background": "default",
+                "foreground": "default",
+                "customForeground": ""
+              },
+              "properties": {
+                "background": {
+                  "type": "string",
+                  "enum": ["default", "prominent", "error", "warning"],
+                  "default": "default",
+                  "description": "Background color when extension is enabled"
+                },
+                "foreground": {
+                  "type": "string",
+                  "enum": ["default", "prominent", "error", "warning", "custom"],
+                  "default": "default",
+                  "description": "Foreground color when extension is enabled"
+                },
+                "customForeground": {
+                  "type": "string",
+                  "default": "",
+                  "description": "Custom foreground color in #RRGGBB format when enabled"
+                }
+              }
+            },
+            "disabled": {
+              "type": "object",
+              "default": {
+                "background": "default",
+                "foreground": "default",
+                "customForeground": ""
+              },
+              "properties": {
+                "background": {
+                  "type": "string",
+                  "enum": ["default", "prominent", "error", "warning"],
+                  "default": "default",
+                  "description": "Background color when extension is disabled"
+                },
+                "foreground": {
+                  "type": "string",
+                  "enum": ["default", "prominent", "error", "warning", "custom"],
+                  "default": "default",
+                  "description": "Foreground color when extension is disabled"
+                },
+                "customForeground": {
+                  "type": "string",
+                  "default": "",
+                  "description": "Custom foreground color in #RRGGBB format when disabled"
+                }
+              }
+            }
+          }
         }
       }
     }

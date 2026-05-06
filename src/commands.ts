@@ -6,6 +6,90 @@ import * as vscode from 'vscode';
 let isActive = true;
 let isTemporarilyDisabled = false;
 let statusBarItem: vscode.StatusBarItem | undefined;
+let stutteringConfig: {
+  statusBar: {
+    show: boolean;
+    icon: boolean;
+    enabledText: string;
+    disabledText: string;
+    enabled: {
+      background: string;
+      foreground: string;
+      customForeground: string;
+    };
+    disabled: {
+      background: string;
+      foreground: string;
+      customForeground: string;
+    };
+  };
+} | undefined;
+
+// Function to update status bar appearance
+export function updateStatusBar(): void {
+  if (!statusBarItem || !stutteringConfig) {
+    return;
+  }
+
+  const statusBarConfig = stutteringConfig.statusBar;
+
+  // Handle temporarily disabled state
+  if (isTemporarilyDisabled) {
+    const icon = statusBarConfig.icon ? "$(alert) " : "";
+    statusBarItem.text = icon + (statusBarConfig.enabledText || "");
+    statusBarItem.tooltip = 'Stuttering temporarily disabled until next change';
+    statusBarItem.show();
+    return;
+  }
+
+  const isActiveState = isActive;
+
+  // Show/hide status bar
+  if (statusBarConfig.show) {
+    // Set text with optional icon
+    const icon = statusBarConfig.icon ? (isActiveState ? "$(check) " : "$(x) ") : "";
+    const text = isActiveState ? statusBarConfig.enabledText : statusBarConfig.disabledText;
+    statusBarItem.text = icon + text;
+
+    // Set tooltip and command
+    statusBarItem.tooltip = 'Toggle Stuttering Extension';
+    statusBarItem.command = {
+      command: 'stuttering.toggle',
+      title: 'Toggle Stuttering'
+    };
+
+    // Set colors based on configuration
+    const colorConfig = isActiveState ? statusBarConfig.enabled : statusBarConfig.disabled;
+
+    // Reset to default first
+    statusBarItem.backgroundColor = undefined;
+    statusBarItem.color = undefined;
+
+    // Apply background color
+    if (colorConfig.background === 'prominent') {
+      statusBarItem.backgroundColor = new vscode.ThemeColor('statusBarItem.prominentBackground');
+    } else if (colorConfig.background === 'error') {
+      statusBarItem.backgroundColor = new vscode.ThemeColor('statusBarItem.errorBackground');
+    } else if (colorConfig.background === 'warning') {
+      statusBarItem.backgroundColor = new vscode.ThemeColor('statusBarItem.warningBackground');
+    }
+
+    // Apply foreground color
+    if (colorConfig.foreground === 'prominent') {
+      statusBarItem.color = new vscode.ThemeColor('statusBarItem.prominentForeground');
+    } else if (colorConfig.foreground === 'error') {
+      statusBarItem.color = new vscode.ThemeColor('statusBarItem.errorForeground');
+    } else if (colorConfig.foreground === 'warning') {
+      statusBarItem.color = new vscode.ThemeColor('statusBarItem.warningForeground');
+    } else if (colorConfig.foreground === 'custom' && colorConfig.customForeground) {
+      statusBarItem.color = colorConfig.customForeground;
+    }
+
+    statusBarItem.show();
+  } else {
+    statusBarItem.hide();
+  }
+}
 
 /**
  * Pastes content from clipboard without stuttering
@@ -26,10 +110,8 @@ export async function pasteWithoutStuttering() {
     // Restore the previous stuttering state
     isActive = wasActive;
 
-    // Update status bar if needed
-    if (statusBarItem) {
-      statusBarItem.text = isActive ? "$(check) Stuttering" : "$(x) Stuttering";
-    }
+    // Update status bar
+    updateStatusBar();
   }
 }
 
@@ -40,6 +122,32 @@ export async function pasteWithoutStuttering() {
  */
 export function setStatusBarItem(item: vscode.StatusBarItem) {
   statusBarItem = item;
+}
+
+/**
+ * Updates the stuttering configuration
+ *
+ * @param config The stuttering configuration object
+ */
+export function updateStutteringConfig(config: {
+  statusBar: {
+    show: boolean;
+    icon: boolean;
+    enabledText: string;
+    disabledText: string;
+    enabled: {
+      background: string;
+      foreground: string;
+      customForeground: string;
+    };
+    disabled: {
+      background: string;
+      foreground: string;
+      customForeground: string;
+    };
+  };
+}) {
+  stutteringConfig = config;
 }
 
 /**
@@ -64,9 +172,7 @@ export function toggleStuttering() {
  */
 export function enableStuttering() {
   isActive = true;
-  if (statusBarItem) {
-    statusBarItem.text = "$(check) Stuttering";
-  }
+  updateStatusBar();
   vscode.window.showInformationMessage('Stuttering extension activated.');
 }
 
@@ -78,9 +184,7 @@ export function enableStuttering() {
  */
 export function disableStuttering() {
   isActive = false;
-  if (statusBarItem) {
-    statusBarItem.text = "$(x) Stuttering";
-  }
+  updateStatusBar();
   vscode.window.showInformationMessage('Stuttering extension deactivated.');
 }
 
@@ -126,9 +230,7 @@ export function isStutteringTemporarilyDisabled(): boolean {
 export function disableTemporarily() {
   isTemporarilyDisabled = true;
 
-  if (statusBarItem) {
-    statusBarItem.text = "$(alert) Stuttering (temporarily disabled)";
-  }
+  updateStatusBar();
 
   vscode.window.showInformationMessage('Stuttering temporarily disabled until next change.');
 }
@@ -146,7 +248,5 @@ export function disableTemporarily() {
 export function reenableAfterTemporaryDisable() {
   isTemporarilyDisabled = false;
 
-  if (statusBarItem) {
-    statusBarItem.text = isActive ? "$(check) Stuttering" : "$(x) Stuttering";
-  }
+  updateStatusBar();
 }

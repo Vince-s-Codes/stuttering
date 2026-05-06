@@ -8,6 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Status Bar Customization:**
+  - Added comprehensive status bar customization options
+  - Show/hide status bar indicator
+  - Toggle checkmark/X icon display
+  - Set different text for enabled/disabled states
+  - Customize background colors using theme colors (default, prominent, error, warning)
+  - Customize foreground colors using theme colors or custom hex colors
+
 - **Debugging Support:**
   - Added `stuttering.logLevel` configuration option with levels: none, error, warning, note, debug
   - Implemented logging functionality with debug, note, warning, and error levels
