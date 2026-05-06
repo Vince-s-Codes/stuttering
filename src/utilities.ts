@@ -8,6 +8,7 @@ import {
   getCachedReplacements,
   cacheReplacements
 } from './cache';
+import { debug } from './log';
 
 /**
  * Gets the indentation of a line in the document
@@ -109,6 +110,9 @@ export function getLanguageMappings(
   // Cache the results for future use
   cacheLanguageMappings(languageId, matchingMappings, maxPreviousLength);
 
+  // Debug logging
+  debug(getLanguageMappings, `Language: ${languageId}, MaxLength: ${maxPreviousLength}, Mappings:`, matchingMappings);
+
   return { matchingMappings, maxPreviousLength };
 }
 
@@ -177,6 +181,9 @@ export function getReplacements(key: string, sequence: MappingConfig|null, langu
 
   // Cache the result for future use
   cacheReplacements(cacheKey, result);
+
+  // Debug logging
+  debug(getReplacements, `Text: ${key}, Result:`, result);
 
   return result;
 }

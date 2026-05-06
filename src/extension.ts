@@ -5,6 +5,7 @@ import * as vscode from 'vscode';
 import { disableStuttering, disableTemporarily, enableStuttering, isStutteringActive, toggleStuttering, setStatusBarItem, pasteWithoutStuttering } from './commands';
 import { handleTextChange } from './StutteringProvider';
 import { clearAllCaches } from './cache';
+import { setLogLevel, LogLevel, LogLevelType } from './log';
 
 export function activate(context: vscode.ExtensionContext) {
   // Initialize configuration
@@ -12,6 +13,20 @@ export function activate(context: vscode.ExtensionContext) {
 
   function getStutteringConfig() {
     const config = vscode.workspace.getConfiguration('stuttering');
+
+    // Set the log level
+    const logLevel = config.get<string>('logLevel', 'none');
+    let levelValue: LogLevelType = LogLevel.NONE;
+
+    switch (logLevel) {
+      case 'none': levelValue = LogLevel.NONE; break;
+      case 'error': levelValue = LogLevel.ERROR; break;
+      case 'warning': levelValue = LogLevel.WARNING; break;
+      case 'note': levelValue = LogLevel.NOTE; break;
+      case 'debug': levelValue = LogLevel.DEBUG; break;
+    }
+
+    setLogLevel(levelValue);
 
     return {
       mappings: config.get<Record<string, {languages: string[], mappings: string[], replace: string}[]>>('mappings', {}),
