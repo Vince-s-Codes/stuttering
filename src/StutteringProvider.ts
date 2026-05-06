@@ -119,7 +119,7 @@ export function handleTextChange(
         const previous = previousText + replacement.replacement;
 
         if (smartClose && [')', ']', '}'].includes(currentChar)) {
-          replacement = insertAtIndex(replacement, (closingChar === null ? currentChar : closingChar), positionMarker, positionMarkerCharacter);
+          replacement = insertAtIndex(replacement, (closingChar === null ? currentChar : closingChar), false, positionMarkerCharacter);
           closingChar = null;
         } else if (Object.keys(matchingMappings).includes(currentChar)) {
           const sequence = matchingMappings[currentChar];
@@ -147,7 +147,7 @@ export function handleTextChange(
                 const fromPrevious = escapeCharacter.length - fromReplacement;
 
                 replacement = removeAtIndex(replacement, fromReplacement);
-                replacement = insertAtIndex(replacement, (sequence.replace ? sequence.replace : currentChar), positionMarker, positionMarkerCharacter);
+                replacement = insertAtIndex(replacement, (sequence.replace ? sequence.replace : currentChar), sequence.replace ? positionMarker : false, positionMarkerCharacter);
                 if (fromPrevious > 0) {
                   previousText = previousText.slice(0, -fromPrevious);
                   baseOffset -= fromPrevious;
@@ -157,13 +157,13 @@ export function handleTextChange(
               }
             }
             if (!matched) {
-              replacement = insertAtIndex(replacement, (sequence.replace ? sequence.replace : currentChar), positionMarker, positionMarkerCharacter);
+              replacement = insertAtIndex(replacement, (sequence.replace ? sequence.replace : currentChar), sequence.replace ? positionMarker : false, positionMarkerCharacter);
             }
           } else {
-            replacement = insertAtIndex(replacement, currentChar, positionMarker, positionMarkerCharacter);
+            replacement = insertAtIndex(replacement, currentChar, false, positionMarkerCharacter);
           }
         } else {
-          replacement = insertAtIndex(replacement, currentChar, positionMarker, positionMarkerCharacter);
+          replacement = insertAtIndex(replacement, currentChar, false, positionMarkerCharacter);
         }
       }
 

@@ -13,6 +13,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Implemented logging functionality with debug, note, warning, and error levels
   - Added logging infrastructure similar to auto-wrap extension
 
+### Fixed
+- **Position Marker Bug:** Fixed issue where `$` characters were being incorrectly removed from user-entered code. The extension now preserves `$` characters in your code while still supporting cursor positioning in generated replacements.
+
 ## [1.0.0] - 2026-04-29
 
 ### Added
