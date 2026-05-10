@@ -60,7 +60,7 @@ export function fixReplacement(replacement: string, indent: string): string {
 /**
  * Interface for mapping configuration
  */
-interface MappingConfig {
+export interface MappingConfig {
   languages: string[];
   mappings: string[];
   replace: string;
