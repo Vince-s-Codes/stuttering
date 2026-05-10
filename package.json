@@ -3,7 +3,7 @@
   "publisher": "VincesCodes",
   "displayName": "Stuttering",
   "description": "This extension changes double or triple characters into other character to avoid key combination",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "icon": "./media/icon.png",
   "homepage": "https://github.com/Vince-s-Codes/stuttering#readme",
   "bugs": {
