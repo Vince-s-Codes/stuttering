@@ -9,10 +9,11 @@ import {
   getIndent,
   fixReplacement,
   insertAtIndex,
-  removeAtIndex
+  removeAtIndex,
+  MappingConfig
 } from './utilities';
-import { isExtensionChange, markExtensionChange } from './cache';
 import { isStutteringTemporarilyDisabled, reenableAfterTemporaryDisable } from './commands';
+import { debug, note, warning } from './log';
 
 interface StutteringConfig {
   mappings: Record<string, {languages: string[], mappings: string[], replace: string}[]>;
@@ -22,7 +23,18 @@ interface StutteringConfig {
   smartClose: boolean;
   positionMarker: boolean;
   positionMarkerCharacter: string;
+  singleCharOnly: boolean;
 }
+
+let currentChange: {replacement: {replacement: string, index: number}, range: vscode.Range} | null = null;
+const onGoingChanges : {
+  change: vscode.TextDocumentContentChangeEvent,
+  config: StutteringConfig,
+  document: vscode.TextDocument,
+  editor: vscode.TextEditor,
+  matchingMappings: Record<string, MappingConfig>,
+  maxPreviousLength: number
+}[] = [];
 
 /**
  * Handles text document changes for stuttering functionality
@@ -43,11 +55,7 @@ export function handleTextChange(
   const {
     mappings,
     processMultiLine,
-    escape,
-    escapeCharacter,
-    smartClose,
-    positionMarker,
-    positionMarkerCharacter
+    singleCharOnly
   } = config;
 
   // Only process user-initiated changes
@@ -57,10 +65,31 @@ export function handleTextChange(
     return;
   }
 
+  if (currentChange !== null &&
+      changes.length === 1 &&
+      changes[0].text === currentChange.replacement.replacement &&
+      changes[0].range.isEqual(currentChange.range)) {
+    note(handleTextChange, 'Current edition callback');
+    return;
+  }
+
+  // Get mappings for the current language and determine the maximum previous text length to check
+  const { matchingMappings, maxPreviousLength } = getLanguageMappings(mappings, document.languageId);
+
+  if (Object.keys(matchingMappings).length === 0) {
+    note(handleTextChange, 'Skip stuttering, no mapping configured');
+    return; // No mappings for this language
+  }
+
   // Filter out changes made by this extension or empty changes
   const userChanges = changes.filter(change => {
     // Skip empty changes
     if (change.text.length === 0) {
+      return false;
+    }
+
+    // If single character only is enabled, skip changes that are not a single character
+    if (singleCharOnly && change.text.length !== 1) {
       return false;
     }
 
@@ -73,12 +102,7 @@ export function handleTextChange(
         return false;
       }
     }
-
-    // Skip changes made by this extension
-    return !isExtensionChange(document, new vscode.Range(
-      document.positionAt(change.rangeOffset),
-      document.positionAt(change.rangeOffset + change.text.length)
-    ), change.text);
+    return true;
   });
 
   if (userChanges.length === 0 || isStutteringTemporarilyDisabled()) {
@@ -88,109 +112,156 @@ export function handleTextChange(
     return;
   }
 
-  // Get mappings for the current language and determine the maximum previous text length to check
-  const { matchingMappings, maxPreviousLength } = getLanguageMappings(mappings, document.languageId);
-
-  if (Object.keys(matchingMappings).length === 0) {
-    return; // No mappings for this language
+  const runChange = (onGoingChanges.length === 0);
+  userChanges.map(change => {
+    onGoingChanges.push({
+      change: change,
+      config: config,
+      document: document,
+      editor: editor,
+      matchingMappings: matchingMappings,
+      maxPreviousLength: maxPreviousLength
+    });
+    debug(handleTextChange, 'append changes', 'line:', change.range.start.line, 'column:', change.range.start.character);
+  });
+  if (runChange) {
+    performStuttering();
   }
+}
 
-  // Process each user-made change
-  const editPromises = userChanges.map(change => {
-    return new Promise<void>((resolve) => {
-      const text = change.text;
-      let baseOffset = change.rangeOffset;
+function performStuttering(secondTry = false) {
+  const onGoingChange = onGoingChanges[0];
 
-      // Get the indentation of the current line
-      const indent = getIndent(document, baseOffset);
+  if (onGoingChange) {
+    const change = onGoingChange.change;
+    const config = onGoingChange.config;
+    const document = onGoingChange.document;
+    const editor = onGoingChange.editor;
+    const matchingMappings = onGoingChange.matchingMappings;
+    const maxPreviousLength = onGoingChange.maxPreviousLength;
+    const text = change.text;
+    const {
+      escape,
+      escapeCharacter,
+      smartClose,
+      positionMarker,
+      positionMarkerCharacter
+    } = config;
+    let baseOffset = change.rangeOffset;
 
-      // Extract the previous text based on the biggest size from the mappings
-      let previousText = document.getText(new vscode.Range(
-        document.positionAt(Math.max(0, baseOffset - maxPreviousLength)),
-        document.positionAt(baseOffset)
-      ));
+    // Get the indentation of the current line
+    const indent = getIndent(document, baseOffset);
 
-      let closingChar = getClosingCharacter(editor, change.rangeOffset);
-      let replacement = {replacement: '', index: 0};
+    // Extract the previous text based on the biggest size from the mappings
+    let previousText = document.getText(new vscode.Range(
+      document.positionAt(Math.max(0, baseOffset - maxPreviousLength)),
+      document.positionAt(baseOffset)
+    ));
 
-      // Process each character in the text
-      for (let i = 0; i < text.length; i++) {
-        const currentChar = text[i];
-        const previous = previousText + replacement.replacement;
+    let closingChar = getClosingCharacter(editor, change.rangeOffset);
+    let replacement = {replacement: '', index: 0};
 
-        if (smartClose && [')', ']', '}'].includes(currentChar)) {
-          replacement = insertAtIndex(replacement, (closingChar === null ? currentChar : closingChar), false, positionMarkerCharacter);
-          closingChar = null;
-        } else if (Object.keys(matchingMappings).includes(currentChar)) {
-          const sequence = matchingMappings[currentChar];
+    debug(performStuttering,
+          'text:', text,
+          'closingChar:', closingChar,
+          'line:', change.range.start.line,
+          'column:', change.range.start.character);
 
-          if (sequence) {
-            let matched = false;
-            const replacements = getReplacements(currentChar, sequence, document.languageId);
+    // Process each character in the text
+    for (let i = 0; i < text.length; i++) {
+      const currentChar = text[i];
+      const previous = previousText + replacement.replacement;
 
-            for (const rep of replacements) {
-              if (previous.endsWith(rep.previous)) {
-                const fromReplacement = Math.min(rep.previous.length, replacement.index);
-                const fromPrevious = rep.previous.length - fromReplacement;
-                const fixedReplacement = fixReplacement(rep.replacement, indent);
+      if (smartClose && [')', ']', '}'].includes(currentChar)) {
+        replacement = insertAtIndex(replacement, (closingChar === null ? currentChar : closingChar), false, positionMarkerCharacter);
+        closingChar = null;
+      } else if (Object.keys(matchingMappings).includes(currentChar)) {
+        const sequence = matchingMappings[currentChar];
 
-                replacement = removeAtIndex(replacement, fromReplacement);
-                replacement = insertAtIndex(replacement, fixedReplacement, positionMarker, positionMarkerCharacter);
-                if (fromPrevious > 0) {
-                  previousText = previousText.slice(0, -fromPrevious);
-                  baseOffset -= fromPrevious;
-                }
-                matched = true;
-                break;
-              } else if (escape && previous.endsWith(rep.previous + escapeCharacter)) {
-                const fromReplacement = Math.min(escapeCharacter.length, replacement.index);
-                const fromPrevious = escapeCharacter.length - fromReplacement;
+        if (sequence) {
+          let matched = false;
+          const replacements = getReplacements(currentChar, sequence, document.languageId);
 
-                replacement = removeAtIndex(replacement, fromReplacement);
-                replacement = insertAtIndex(replacement, (sequence.replace ? sequence.replace : currentChar), sequence.replace ? positionMarker : false, positionMarkerCharacter);
-                if (fromPrevious > 0) {
-                  previousText = previousText.slice(0, -fromPrevious);
-                  baseOffset -= fromPrevious;
-                }
-                matched = true;
-                break;
+          for (const rep of replacements) {
+            if (previous.endsWith(rep.previous)) {
+              const fromReplacement = Math.min(rep.previous.length, replacement.index);
+              const fromPrevious = rep.previous.length - fromReplacement;
+              const fixedReplacement = fixReplacement(rep.replacement, indent);
+
+              replacement = removeAtIndex(replacement, fromReplacement);
+              replacement = insertAtIndex(replacement, fixedReplacement, positionMarker, positionMarkerCharacter);
+              if (fromPrevious > 0) {
+                previousText = previousText.slice(0, -fromPrevious);
+                baseOffset -= fromPrevious;
               }
-            }
-            if (!matched) {
+              matched = true;
+              break;
+            } else if (escape && previous.endsWith(rep.previous + escapeCharacter)) {
+              const fromReplacement = Math.min(escapeCharacter.length, replacement.index);
+              const fromPrevious = escapeCharacter.length - fromReplacement;
+
+              replacement = removeAtIndex(replacement, fromReplacement);
               replacement = insertAtIndex(replacement, (sequence.replace ? sequence.replace : currentChar), sequence.replace ? positionMarker : false, positionMarkerCharacter);
+              if (fromPrevious > 0) {
+                previousText = previousText.slice(0, -fromPrevious);
+                baseOffset -= fromPrevious;
+              }
+              matched = true;
+              break;
             }
-          } else {
-            replacement = insertAtIndex(replacement, currentChar, false, positionMarkerCharacter);
+          }
+          if (!matched) {
+            replacement = insertAtIndex(replacement, (sequence.replace ? sequence.replace : currentChar), sequence.replace ? positionMarker : false, positionMarkerCharacter);
           }
         } else {
           replacement = insertAtIndex(replacement, currentChar, false, positionMarkerCharacter);
         }
+      } else {
+        replacement = insertAtIndex(replacement, currentChar, false, positionMarkerCharacter);
       }
+    }
 
-      if (baseOffset !== change.rangeOffset || replacement.replacement !== text) {
-        editor.edit(editBuilder => {
-          const editRange = new vscode.Range(
-            document.positionAt(baseOffset),
-            document.positionAt(change.rangeOffset + text.length)
-          );
+    if (baseOffset !== change.rangeOffset || replacement.replacement !== text) {
+      const editRange = new vscode.Range(
+        document.positionAt(baseOffset),
+        document.positionAt(change.rangeOffset + text.length)
+      );
 
-          editBuilder.replace(editRange, replacement.replacement);
-          markExtensionChange(document, editRange, replacement.replacement);
-        }).then(() => {
+      currentChange = {replacement: replacement, range: editRange};
+      editor.edit(editBuilder => {
+        editBuilder.replace(editRange, replacement.replacement);
+      }).then((success) => {
+        if (success) {
+          currentChange = null;
           if (positionMarker && replacement.index !== replacement.replacement.length) {
             // Move cursor to the position marker index
             const cursorPosition = document.positionAt(baseOffset + replacement.index);
 
             editor.selection = new vscode.Selection(cursorPosition, cursorPosition);
           }
-          resolve();
-        });
-      } else {
-        resolve();
+          onGoingChanges.shift();
+          if (onGoingChanges.length > 0) {
+            performStuttering();
+          }
+        } else {
+          warning(performStuttering, 'Fail to perform stuttering due to multiple edits');
+          if (secondTry) {
+            onGoingChanges.shift();
+            if (onGoingChanges.length > 0) {
+              performStuttering();
+            }
+          } else {
+            performStuttering(true);
+          }
+        }
+      });
+    } else {
+      onGoingChanges.shift();
+      if (onGoingChanges.length > 0) {
+        performStuttering();
       }
-    });
-  });
-
-  // Wait for all edits to complete
-  return Promise.all(editPromises);
+    }
+  } else {
+    warning(performStuttering, 'function called without changes on-going!');
+  }
 }

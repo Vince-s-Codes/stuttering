@@ -41,6 +41,7 @@ export function activate(context: vscode.ExtensionContext) {
     return {
       mappings: config.get<Record<string, {languages: string[], mappings: string[], replace: string}[]>>('mappings', {}),
       processMultiLine: config.get<boolean>('processMultiLine', false),
+      singleCharOnly: config.get<boolean>('singleCharOnly', false),
       escape: config.get<boolean>('escape', true),
       escapeCharacter: config.get<string>('escapeCharacter', "'"),
       smartClose: config.get<boolean>('smartClose', true),

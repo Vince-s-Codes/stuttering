@@ -15,6 +15,9 @@ export type LogLevelType = typeof LogLevel[keyof typeof LogLevel];
 // Current log level - will be set from extension.ts
 let currentLogLevel: LogLevelType = LogLevel.NONE;
 
+// Track the last debug call time for time difference calculation
+let lastDebugTime: number | null = null;
+
 /**
  * Sets the current log level
  * @param level The log level to set
@@ -34,14 +37,17 @@ function shouldLog(level: LogLevelType): boolean {
  */
 export function debug(functionRef: Function | string, ...args: any[]): void {
   if (shouldLog(LogLevel.DEBUG)) {
+    const currentTime = Date.now();
+    const timeDiff = lastDebugTime ? `+${currentTime - lastDebugTime}ms` : "";
+    lastDebugTime = currentTime;
+
     if (typeof functionRef === 'function') {
       // Handle case where first argument is a function reference
       const functionName = functionRef.name;
-
-      console.log(`stuttering:: [DEBUG] (${functionName})`, ...args);
+      console.log(`stuttering:: [DEBUG:${timeDiff}] (${functionName})`, ...args);
     } else if (typeof functionRef === 'string') {
       // Handle case where first argument is a string
-      console.log(`stuttering:: [DEBUG] ${functionRef}`, ...args);
+      console.log(`stuttering:: [DEBUG:${timeDiff}] ${functionRef}`, ...args);
     }
   }
 }
