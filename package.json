@@ -81,6 +81,11 @@
           "default": false,
           "description": "When on, performs stuttering replacement on complete lines or multi-line selections"
         },
+        "stuttering.singleCharOnly": {
+          "type": "boolean",
+          "default": false,
+          "description": "When on, only performs stuttering on single character changes"
+        },
         "stuttering.logLevel": {
           "type": "string",
           "enum": ["none", "error", "warning", "note", "debug"],

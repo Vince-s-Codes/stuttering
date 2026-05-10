@@ -257,3 +257,11 @@ Enable/disable multi-line processing:
 ```
 - Default: `false`
 - When enabled, stuttering replacement will be performed on complete lines or multi-line selections
+
+### `stuttering.singleCharOnly`
+Enable/disable single character only processing:
+```json
+"stuttering.singleCharOnly": false
+```
+- Default: `false`
+- When enabled, stuttering will only be performed on single character changes, ignoring multi-character pastes or other bulk edits
