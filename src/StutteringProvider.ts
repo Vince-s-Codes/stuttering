@@ -63,6 +63,7 @@ export function handleTextChange(
   if (reason === vscode.TextDocumentChangeReason.Undo ||
       reason === vscode.TextDocumentChangeReason.Redo ||
       changes.length === 0) {
+    note(handleTextChange, changes.length === 0 ? 'No changes!' : 'Undo/Redo: no stuttering');
     return;
   }
 

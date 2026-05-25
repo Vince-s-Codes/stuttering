@@ -15,7 +15,7 @@ import {
 } from './commands';
 import { handleTextChange } from './StutteringProvider';
 import { clearAllCaches } from './cache';
-import { setLogLevel, LogLevel, LogLevelType } from './log';
+import { setLogLevel, LogLevel, LogLevelType, warning } from './log';
 
 export function activate(context: vscode.ExtensionContext) {
   // Initialize configuration
@@ -95,6 +95,7 @@ export function activate(context: vscode.ExtensionContext) {
 
     const editor = vscode.window.activeTextEditor;
     if (!editor) {
+      warning(activate, 'editor is not active!');
       return;
     }
 
