@@ -13,7 +13,7 @@ import {
   MappingConfig
 } from './utilities';
 import { isStutteringTemporarilyDisabled, reenableAfterTemporaryDisable } from './commands';
-import { debug, note, warning } from './log';
+import { debug, error, note, warning } from './log';
 
 interface StutteringConfig {
   mappings: Record<string, {languages: string[], mappings: string[], replace: string}[]>;
@@ -26,14 +26,15 @@ interface StutteringConfig {
   singleCharOnly: boolean;
 }
 
-let currentChange: {replacement: {replacement: string, index: number}, range: vscode.Range} | null = null;
+let currentChange: {count: number, replacement: {replacement: string, index: number}, range: vscode.Range, text: string} | null = null;
 const onGoingChanges : {
   change: vscode.TextDocumentContentChangeEvent,
   config: StutteringConfig,
   document: vscode.TextDocument,
   editor: vscode.TextEditor,
   matchingMappings: Record<string, MappingConfig>,
-  maxPreviousLength: number
+  maxPreviousLength: number,
+  selections: vscode.Selection[]
 }[] = [];
 
 /**
@@ -66,11 +67,18 @@ export function handleTextChange(
   }
 
   if (currentChange !== null &&
-      changes.length === 1 &&
+      changes.length === currentChange.count &&
       changes[0].text === currentChange.replacement.replacement &&
       changes[0].range.isEqual(currentChange.range)) {
     note(handleTextChange, 'Current edition callback');
     return;
+  } else if(currentChange !==  null && changes.length === currentChange.count) {
+    debug(handleTextChange,
+          'currentChange:', currentChange,
+          'change:', changes[0],
+          'isEqual:', changes[0].range.isEqual(currentChange.range),
+          'startEqual:', changes[0].range.start.isEqual(currentChange.range.start),
+          'endEqual:', changes[0].range.end.isEqual(currentChange.range.end));
   }
 
   // Get mappings for the current language and determine the maximum previous text length to check
@@ -114,21 +122,46 @@ export function handleTextChange(
 
   const runChange = (onGoingChanges.length === 0);
   userChanges.map(change => {
-    onGoingChanges.push({
-      change: change,
-      config: config,
-      document: document,
-      editor: editor,
-      matchingMappings: matchingMappings,
-      maxPreviousLength: maxPreviousLength
-    });
-    debug(handleTextChange, 'append changes', 'line:', change.range.start.line, 'column:', change.range.start.character);
+    if(!onGoingChanges.some(onGoingChange => {
+      if(onGoingChange.change.text !== change.text) {
+        return false;
+      }
+      return onGoingChange.selections.some(selection => {
+        return selection.contains(change.range.start) || selection.contains(change.range.end);
+      });
+    })) {
+      onGoingChanges.push({
+        change: change,
+        config: config,
+        document: document,
+        editor: editor,
+        matchingMappings: matchingMappings,
+        maxPreviousLength: maxPreviousLength,
+        selections: editor.selections.map(selection => new vscode.Selection(selection.start, selection.end))
+      });
+      debug(handleTextChange, 'append changes::',
+            'change:', change,
+            'onGoingChanges count:', onGoingChanges.length);
+    } else {
+      note(handleTextChange, 'filter change already taken care of::',
+           'change:', change);
+    }
   });
   if (runChange) {
     performStuttering();
   }
 }
 
+/**
+ * Processes stuttering patterns for text changes in the editor.
+ *
+ * This function handles the core logic of the stuttering functionality, processing each character
+ * in the changed text and applying appropriate replacements based on the configured mappings.
+ * It manages the cursor position, indentation, and handles special cases like escape characters
+ * and smart closing of brackets/parentheses.
+ *
+ * @param secondTry - If true, indicates this is a retry attempt after a failed edit (default: false)
+ */
 function performStuttering(secondTry = false) {
   const onGoingChange = onGoingChanges[0];
 
@@ -139,6 +172,7 @@ function performStuttering(secondTry = false) {
     const editor = onGoingChange.editor;
     const matchingMappings = onGoingChange.matchingMappings;
     const maxPreviousLength = onGoingChange.maxPreviousLength;
+    const selections = onGoingChange.selections;
     const text = change.text;
     const {
       escape,
@@ -147,7 +181,8 @@ function performStuttering(secondTry = false) {
       positionMarker,
       positionMarkerCharacter
     } = config;
-    let baseOffset = change.rangeOffset;
+    let baseOffset = document.offsetAt(change.range.start);
+    const originalOffset = baseOffset;
 
     // Get the indentation of the current line
     const indent = getIndent(document, baseOffset);
@@ -163,9 +198,11 @@ function performStuttering(secondTry = false) {
 
     debug(performStuttering,
           'text:', text,
+          'baseOffset:', baseOffset,
           'closingChar:', closingChar,
           'line:', change.range.start.line,
-          'column:', change.range.start.character);
+          'column:', change.range.start.character,
+          'previousText:', previousText.replaceAll('\n', '\\n'));
 
     // Process each character in the text
     for (let i = 0; i < text.length; i++) {
@@ -211,7 +248,8 @@ function performStuttering(secondTry = false) {
             }
           }
           if (!matched) {
-            replacement = insertAtIndex(replacement, (sequence.replace ? sequence.replace : currentChar), sequence.replace ? positionMarker : false, positionMarkerCharacter);
+            replacement = insertAtIndex(replacement, (sequence.replace ? sequence.replace : currentChar),
+                                        sequence.replace ? positionMarker : false, positionMarkerCharacter);
           }
         } else {
           replacement = insertAtIndex(replacement, currentChar, false, positionMarkerCharacter);
@@ -221,27 +259,58 @@ function performStuttering(secondTry = false) {
       }
     }
 
-    if (baseOffset !== change.rangeOffset || replacement.replacement !== text) {
+    if (baseOffset !== originalOffset || replacement.replacement !== text) {
       const editRange = new vscode.Range(
-        document.positionAt(baseOffset),
-        document.positionAt(change.rangeOffset + text.length)
+        change.range.start.translate(0, baseOffset - originalOffset),
+        change.range.end.translate(0, text.length)
       );
 
-      currentChange = {replacement: replacement, range: editRange};
+      debug(performStuttering,
+            'change:', change,
+            'editRange:', editRange,
+            'baseOffset:', baseOffset,
+            'replacement:', replacement);
+      currentChange = {count: selections.length,
+                       replacement: replacement,
+                       range: editRange,
+                       text: change.text};
       editor.edit(editBuilder => {
-        editBuilder.replace(editRange, replacement.replacement);
+        selections.forEach(selection => {
+          const startPosition = selection.start.translate(0, baseOffset - originalOffset);
+          const endPosition = selection.end.translate(0, text.length);
+
+          debug(performStuttering,
+                'selection:', selection,
+                'startPosition:', startPosition,
+                'endPosition:', endPosition);
+          editBuilder.replace(new vscode.Selection(startPosition, endPosition), replacement.replacement);
+        });
       }).then((success) => {
         if (success) {
           currentChange = null;
           if (positionMarker && replacement.index !== replacement.replacement.length) {
-            // Move cursor to the position marker index
-            const cursorPosition = document.positionAt(baseOffset + replacement.index);
+            let sels : vscode.Selection[] = [];
 
-            editor.selection = new vscode.Selection(cursorPosition, cursorPosition);
+            try {
+              editor.selections.forEach(selection => {
+                const startPosition = document.positionAt(document.offsetAt(selection.start) - replacement.replacement.length + replacement.index);
+                const endPosition = document.positionAt(document.offsetAt(selection.end) - replacement.replacement.length + replacement.index);
+
+                sels.push(new vscode.Selection(startPosition, endPosition));
+              });
+              debug(performStuttering,
+                    'editor.selections:', editor.selections,
+                    'sels:', sels);
+              editor.selections = sels;
+            } catch(e) {
+              error(performStuttering, e);
+            }
           }
           onGoingChanges.shift();
           if (onGoingChanges.length > 0) {
             performStuttering();
+          } else {
+            note(performStuttering, 'done performing all on-going stuttering');
           }
         } else {
           warning(performStuttering, 'Fail to perform stuttering due to multiple edits');
@@ -249,6 +318,8 @@ function performStuttering(secondTry = false) {
             onGoingChanges.shift();
             if (onGoingChanges.length > 0) {
               performStuttering();
+            } else {
+              note(performStuttering, 'done performing all on-going stuttering');
             }
           } else {
             performStuttering(true);
@@ -259,6 +330,8 @@ function performStuttering(secondTry = false) {
       onGoingChanges.shift();
       if (onGoingChanges.length > 0) {
         performStuttering();
+      } else {
+        note(performStuttering, 'done performing all on-going stuttering');
       }
     }
   } else {
